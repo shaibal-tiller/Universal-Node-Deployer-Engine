@@ -23,7 +23,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
@@ -36,13 +36,17 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 def ensure_dependencies():
+    if getattr(sys, 'frozen', False):
+        return # Cannot auto-install in a bundled app
     try:
         import psutil
         import tkhtmlview
         import markdown2
     except ImportError:
-        print("Installing dependencies...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil", "tkhtmlview", "markdown2"])
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil", "tkhtmlview", "markdown2"])
+        except:
+            pass
 
 ensure_dependencies()
 import psutil
@@ -959,5 +963,23 @@ del "%~f0"
             messagebox.showinfo("Copied", f"Link copied to clipboard!\n\n{self.tunnel_url}")
 
 if __name__ == "__main__":
-    app = UniversalAppDeployer()
-    app.mainloop()
+    try:
+        app = UniversalAppDeployer()
+        app.mainloop()
+    except Exception as e:
+        import traceback
+        desktop = os.path.expanduser("~/Desktop")
+        with open(os.path.join(desktop, "universal_deployer_crash.txt"), "w") as f:
+            f.write(f"Version: {__version__}\n")
+            f.write(f"Platform: {platform.platform()}\n")
+            f.write(str(e))
+            f.write("\n\n" + traceback.format_exc())
+        
+        # Also try to show a message box if possible
+        try:
+            import tkinter.messagebox as mb
+            root = tk.Tk()
+            root.withdraw()
+            mb.showerror("Startup Error", f"The application failed to start.\n\nA crash log has been created on your Desktop.\n\nError: {e}")
+        except:
+            pass
