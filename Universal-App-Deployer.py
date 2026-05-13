@@ -31,7 +31,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.12"
+__version__ = "1.0.13"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
@@ -317,6 +317,10 @@ rm "$0"
         
         self.btn_local_update = ttk.Button(header, text="Install Local Update...", command=self.manual_local_update)
         self.btn_local_update.pack(side=tk.RIGHT, padx=5)
+        
+        # Refresh Button
+        self.btn_refresh = ttk.Button(header, text="↻ Refresh", command=self.reset_app_state)
+        self.btn_refresh.pack(side=tk.RIGHT, padx=5)
 
         # System Metrics Dashboard (Prominent)
         metrics_frame = ttk.LabelFrame(self, text=" App & System Real-Time Metrics ", padding=10)
@@ -434,6 +438,16 @@ rm "$0"
             self.cb_projects['values'] = self.recent_projects
             self.cb_projects.current(0)
     
+    def reset_app_state(self):
+        """Resets the application to its initial state without closing."""
+        if messagebox.askyesno("Refresh App", "Are you sure you want to refresh? This will stop any running local servers and clear your current progress."):
+            self.do_stop_local()
+            self.do_stop_tunnel()
+            self.term.delete(1.0, tk.END)
+            self.project_dir.set("")
+            self.log("App state has been reset.")
+            self.run_step(1)
+
     def on_project_changed(self, event=None):
         new_path = self.project_dir.get()
         if os.path.isdir(new_path):
