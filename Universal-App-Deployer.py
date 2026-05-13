@@ -389,7 +389,12 @@ del "%~f0"
     def stop_loading(self):
         self.progress.stop()
 
-    def log(self, text, level="INFO"):
+    def log(self, text, level="INFO", **kwargs):
+        # Handle legacy 'color' argument if it exists in kwargs
+        if "color" in kwargs and level == "INFO":
+            # Map common legacy colors to levels if possible
+            if kwargs["color"] == "#f38ba8": level = "ERROR"
+            elif kwargs["color"] == "#f9e2af": level = "WARN"
         # Level colors
         colors = {"INFO": "#a6e3a1", "WARN": "#f9e2af", "ERROR": "#f38ba8"}
         tag_color = colors.get(level, "#cdd6f4")
@@ -615,7 +620,7 @@ del "%~f0"
 
     def step_system_check(self):
         ttk.Label(self.action_content, text="Checking system requirements...", font=("Segoe UI", 12)).pack(anchor=tk.W, pady=5)
-        self.log(f"Validating system requirements for {self.project_type}...", color="#89b4fa")
+        self.log(f"Validating system requirements for {self.project_type}...", level="INFO")
         
         status_frame = ttk.Frame(self.action_content)
         status_frame.pack(fill=tk.X, pady=10)
