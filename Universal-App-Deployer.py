@@ -24,7 +24,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.3"
+__version__ = "1.0.7"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
@@ -67,20 +67,32 @@ class UpdateManager:
         try:
             req = urllib.request.Request(self.api_url)
             req.add_header('User-Agent', 'Universal-App-Deployer-Updater')
-            with urllib.request.urlopen(req, timeout=5) as response:
+            # Add cache-busting header
+            req.add_header('Cache-Control', 'no-cache')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
                 data = json.loads(response.read().decode())
                 self.latest_version = data.get("tag_name", "").replace("v", "")
+                
                 if self.latest_version and self._is_newer(self.latest_version, self.current_version):
-                    self.update_available = True
                     # Find asset for current platform
                     assets = data.get("assets", [])
-                    ext = ".exe" if platform.system() == "Windows" else ".dmg"
+                    is_win = platform.system() == "Windows"
+                    is_mac = platform.system() == "Darwin"
+                    
                     for asset in assets:
-                        if asset["name"].endswith(ext):
+                        name = asset["name"].lower()
+                        if is_win and (name.endswith(".exe") or name.endswith(".zip")):
                             self.download_url = asset["browser_download_url"]
                             break
+                        elif is_mac and name.endswith(".dmg"):
+                            self.download_url = asset["browser_download_url"]
+                            break
+                    
+                    self.update_available = True
                     return True
-        except Exception:
+        except Exception as e:
+            # Silence is golden, but we can print for debugging if needed
             pass
         return False
 
