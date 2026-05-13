@@ -31,7 +31,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.11"
+__version__ = "1.0.12"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
@@ -197,7 +197,7 @@ class UniversalAppDeployer(tk.Tk):
         def download_and_swap():
             try:
                 temp_dir = tempfile.gettempdir()
-                ext = ".exe" if platform.system() == "Windows" else ".dmg"
+                ext = ".zip" if platform.system() == "Windows" else ".dmg"
                 download_path = os.path.join(temp_dir, f"UniversalAppDeployer_Update{ext}")
                 
                 if local_file:
@@ -209,20 +209,56 @@ class UniversalAppDeployer(tk.Tk):
                 exe_path = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
                 
                 if platform.system() == "Windows":
-                    # Create a batch script to wait for exit, swap, and restart
+                    # For Windows, exe_path is inside the app directory (which has dlls)
+                    app_dir = os.path.dirname(exe_path)
+                    extract_dir = os.path.join(temp_dir, "UniversalAppDeployer_Extracted")
+                    
+                    # Create batch script to extract, wait, swap, and restart
                     bat_path = os.path.join(temp_dir, "updater.bat")
                     with open(bat_path, "w") as f:
                         f.write(f'''@echo off
+echo Updating Universal Deployer...
 timeout /t 2 /nobreak > NUL
-move /Y "{download_path}" "{exe_path}"
+powershell -Command "Expand-Archive -Force '{download_path}' -DestinationPath '{extract_dir}'"
+xcopy /Y /E /H /C /I "{extract_dir}\\*" "{app_dir}\\"
 start "" "{exe_path}"
+rmdir /S /Q "{extract_dir}"
+del "{download_path}"
 del "%~f0"
 ''')
                     subprocess.Popen(bat_path, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
                     self.after(0, self.destroy) # Close current app
+                    
                 elif platform.system() == "Darwin":
-                    # Mount DMG and close app
-                    subprocess.Popen(["open", download_path])
+                    # For macOS, if frozen, sys.executable is inside the .app bundle
+                    if getattr(sys, 'frozen', False):
+                        app_path = os.path.abspath(os.path.join(exe_path, "..", "..", ".."))
+                    else:
+                        app_path = exe_path # If running from python source, not supported well for hot-swap
+                        
+                    if not app_path.endswith(".app"):
+                        # Fallback if we can't figure out the app bundle path
+                        subprocess.Popen(["open", download_path])
+                        self.after(0, self.destroy)
+                        return
+
+                    sh_path = os.path.join(temp_dir, "updater.sh")
+                    with open(sh_path, "w") as f:
+                        f.write(f'''#!/bin/bash
+sleep 2
+MOUNT_DIR=$(mktemp -d)
+hdiutil attach "{download_path}" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+rm -rf "{app_path}"
+cp -R "$MOUNT_DIR/Universal Deployer.app" "{app_path}"
+xattr -rc "{app_path}"
+hdiutil detach "$MOUNT_DIR" -force
+open "{app_path}"
+rm "{download_path}"
+rm "$0"
+''')
+                    os.chmod(sh_path, 0o755)
+                    # Run script in background detached
+                    subprocess.Popen([sh_path], start_new_session=True)
                     self.after(0, self.destroy)
                 else:
                     webbrowser.open(f"https://github.com/{GITHUB_REPO}/releases/latest")
