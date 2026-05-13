@@ -14,6 +14,13 @@ import socket
 import hashlib
 import platform
 from datetime import datetime
+import ssl
+
+# Fix for macOS CERTIFICATE_VERIFY_FAILED error in urllib
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
 
 # macOS PATH Fix: GUI apps don't inherit shell PATH. 
 # We must manually inject common binary locations.
@@ -24,7 +31,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.9"
+__version__ = "1.0.10"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
