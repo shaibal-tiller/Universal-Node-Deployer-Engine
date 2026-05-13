@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+dist/
+build/
+venv/
+env/
+.DS_Store
+*.zip
+*.dmg
