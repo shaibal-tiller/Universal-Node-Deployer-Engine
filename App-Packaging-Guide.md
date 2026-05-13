@@ -78,3 +78,21 @@ create-dmg \
 ```
 ### 🎉 Done!
 You now have a clean **`UniversalDeployer.dmg`**. When users open it, they will see an intuitive UI instructing them to drag the app into their macOS `Applications` folder!
+
+---
+
+### ⚠️ macOS Security & Gatekeeper
+Since this app is not signed with a paid Apple Developer Certificate, macOS users will see a warning: 
+> *"Apple could not verify Universal Deployer is free of malware."*
+
+**How to open the app anyway:**
+1. **Right-click** (or Control-click) the app icon in your `Applications` folder.
+2. Select **Open**.
+3. Click **Open** again in the security dialog box.
+   *Note: This only needs to be done once per machine.*
+
+**For developers (Force bypass):**
+If the app still won't open, you can run this command in Terminal to strip the quarantine flag:
+```bash
+xattr -cr /Applications/"Universal Deployer.app"
+```

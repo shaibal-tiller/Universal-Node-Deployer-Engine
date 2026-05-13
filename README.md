@@ -68,10 +68,11 @@ Choose the version appropriate for your system.
 
 ### <span style="color:#A2AAAD">🍎 macOS Setup</span>
 **Option A: Native Drag & Drop (`.dmg`) - *Recommended***
-1. Download the `UniversalDeployer.dmg` file from the Releases tab.
+1. Download the `Universal-Deployer-Mac.dmg` from the **Releases** tab.
 2. Double click to open the image.
 3. Drag the **Universal Deployer** icon into your **Applications** folder shortcut.
-4. Open the app from your Launchpad!
+4. **Important:** Since the app is unsigned, you must **Right-Click** (Control-click) the app in your Applications folder and select **Open** the first time you run it.
+5. Click **Open** again in the security dialog.
 
 **Option B: Running from Source**
 1. Download the repository folder.
