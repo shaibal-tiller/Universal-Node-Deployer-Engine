@@ -245,17 +245,21 @@ del "%~f0"
         self.lbl_network = ttk.Label(header, text="Net: Checking...", foreground="#89b4fa", font=("Helvetica", 10, "bold"))
         self.lbl_network.pack(side=tk.RIGHT, padx=5)
 
+        # Manual Update Button
+        self.btn_update = ttk.Button(header, text="Check for Updates", command=self.manual_update_check)
+        self.btn_update.pack(side=tk.RIGHT, padx=10)
+
         # System Metrics Dashboard (Prominent)
-        metrics_frame = ttk.LabelFrame(self, text=" System Real-Time Metrics ", padding=10)
+        metrics_frame = ttk.LabelFrame(self, text=" App & System Real-Time Metrics ", padding=10)
         metrics_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
         
-        self.lbl_cpu = ttk.Label(metrics_frame, text="CPU Usage: --%", foreground="#a6e3a1", font=("Helvetica", 11, "bold"), width=20)
+        self.lbl_cpu = ttk.Label(metrics_frame, text="App CPU: --%", foreground="#a6e3a1", font=("Helvetica", 11, "bold"), width=15)
         self.lbl_cpu.pack(side=tk.LEFT, padx=10)
         
-        self.lbl_ram = ttk.Label(metrics_frame, text="RAM Usage: --%", foreground="#f9e2af", font=("Helvetica", 11, "bold"), width=20)
+        self.lbl_ram = ttk.Label(metrics_frame, text="App RAM: --MB", foreground="#f9e2af", font=("Helvetica", 11, "bold"), width=15)
         self.lbl_ram.pack(side=tk.LEFT, padx=10)
         
-        self.lbl_disk = ttk.Label(metrics_frame, text="Disk Usage: --%", foreground="#fab387", font=("Helvetica", 11, "bold"), width=20)
+        self.lbl_disk = ttk.Label(metrics_frame, text="Disk: --%", foreground="#fab387", font=("Helvetica", 11, "bold"), width=15)
         self.lbl_disk.pack(side=tk.LEFT, padx=10)
 
         # Project Selector
@@ -311,7 +315,21 @@ del "%~f0"
         # Terminal Area
         term_frame = ttk.Frame(right_panel)
         term_frame.pack(fill=tk.BOTH, expand=True)
-        ttk.Label(term_frame, text="Terminal Output:", font=("Segoe UI", 10, "bold"), foreground="#89dceb").pack(anchor=tk.W, pady=(0,5))
+        
+        term_header = ttk.Frame(term_frame)
+        term_header.pack(fill=tk.X, pady=(0,5))
+        ttk.Label(term_header, text="Terminal Output:", font=("Segoe UI", 10, "bold"), foreground="#89dceb").pack(side=tk.LEFT)
+        
+        # Copy Buttons
+        ttk.Button(term_header, text="Copy All", width=10, command=self.copy_all_logs).pack(side=tk.RIGHT, padx=2)
+        ttk.Button(term_header, text="Copy Selected", width=15, command=self.copy_selected_logs).pack(side=tk.RIGHT, padx=2)
+        
+        # Filter
+        ttk.Label(term_header, text=" Filter: ", foreground="#a6adc8").pack(side=tk.RIGHT)
+        self.log_filter = tk.StringVar(value="All")
+        cb_filter = ttk.Combobox(term_header, textvariable=self.log_filter, values=["All", "INFO", "WARN", "ERROR"], width=10, state="readonly")
+        cb_filter.pack(side=tk.RIGHT, padx=5)
+        cb_filter.bind("<<ComboboxSelected>>", self.apply_log_filter)
         
         # Custom Scrollbar and ScrolledText alternative
         self.term = tk.Text(term_frame, bg="#11111b", fg="#a6e3a1", font=("Consolas", 11), borderwidth=1, relief="flat", highlightthickness=1, highlightbackground="#313244", highlightcolor="#89b4fa", wrap=tk.WORD)
@@ -371,17 +389,61 @@ del "%~f0"
     def stop_loading(self):
         self.progress.stop()
 
-    def log(self, text, color=None):
+    def log(self, text, level="INFO"):
+        # Level colors
+        colors = {"INFO": "#a6e3a1", "WARN": "#f9e2af", "ERROR": "#f38ba8"}
+        tag_color = colors.get(level, "#cdd6f4")
+        
         timestamp = datetime.now().strftime("[%H:%M:%S] ")
-        self.term.insert(tk.END, timestamp + text + "\n")
-        self.term.see(tk.END)
+        full_text = f"{timestamp} [{level}] {text}\n"
+        
+        # We store all logs in a hidden list for filtering
+        if not hasattr(self, 'all_logs'): self.all_logs = []
+        self.all_logs.append((level, full_text))
+        
+        # Apply filter before showing
+        current_filter = self.log_filter.get()
+        if current_filter == "All" or current_filter == level:
+            self.term.insert(tk.END, full_text)
+            self.term.see(tk.END)
         self.update_idletasks()
+
+    def apply_log_filter(self, event=None):
+        self.term.delete(1.0, tk.END)
+        current_filter = self.log_filter.get()
+        for level, text in self.all_logs:
+            if current_filter == "All" or current_filter == level:
+                self.term.insert(tk.END, text)
+        self.term.see(tk.END)
+
+    def copy_all_logs(self):
+        logs = "".join([log[1] for log in self.all_logs])
+        self.clipboard_clear()
+        self.clipboard_append(logs)
+        messagebox.showinfo("Copied", "All logs copied to clipboard!")
+
+    def copy_selected_logs(self):
+        try:
+            selected_text = self.term.get(tk.SEL_FIRST, tk.SEL_LAST)
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+        except tk.TclError:
+            messagebox.showwarning("Warning", "No text selected!")
+
+    def manual_update_check(self):
+        self.log("Manual update check requested...")
+        updater = UpdateManager(__version__, GITHUB_REPO)
+        if updater.check_for_updates():
+            self.show_update_dialog(updater)
+        else:
+            messagebox.showinfo("Update Check", f"You are up to date! (v{__version__})")
 
     def update_network_status(self):
         def check():
             try:
                 start = time.time()
-                urllib.request.urlopen('https://8.8.8.8', timeout=2)
+                # Use a reliable URL
+                urllib.request.urlopen('http://www.google.com', timeout=3)
                 ms = int((time.time() - start) * 1000)
                 self.lbl_network.config(text=f"Net: {ms}ms", foreground="#a6e3a1")
             except:
@@ -392,12 +454,16 @@ del "%~f0"
     def update_system_stats(self):
         def check():
             try:
-                cpu = psutil.cpu_percent(interval=None)
-                ram = psutil.virtual_memory().percent
+                # App specific metrics
+                process = psutil.Process(os.getpid())
+                app_cpu = process.cpu_percent(interval=None) / psutil.cpu_count()
+                app_mem = process.memory_info().rss / (1024 * 1024) # MB
+                
+                # System disk
                 disk = psutil.disk_usage('/').percent
                 
-                self.lbl_cpu.config(text=f"CPU: {cpu:.1f}%")
-                self.lbl_ram.config(text=f"RAM: {ram:.1f}%")
+                self.lbl_cpu.config(text=f"App CPU: {app_cpu:.1f}%")
+                self.lbl_ram.config(text=f"App RAM: {app_mem:.1f}MB")
                 self.lbl_disk.config(text=f"Disk: {disk:.1f}%")
             except Exception as e:
                 pass
@@ -504,24 +570,23 @@ del "%~f0"
                 dark_css = """
                 <style>
                     body {
-                        background-color: #11111b;
-                        color: #cdd6f4;
+                        background-color: #11111b !important;
+                        color: #cdd6f4 !important;
                         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                         font-size: 14px;
                         line-height: 1.6;
                         padding: 15px;
                     }
-                    h1, h2, h3, h4 { color: #89b4fa; }
-                    h2 { color: #f9e2af; border-bottom: 1px solid #313244; padding-bottom: 5px; }
-                    a { color: #89dceb; text-decoration: none; }
-                    code { background-color: #313244; color: #fab387; padding: 2px 4px; border-radius: 3px; font-family: 'Consolas', monospace; }
-                    pre { background-color: #181825; padding: 10px; border-radius: 5px; overflow-x: auto; }
-                    pre code { background-color: transparent; color: #a6e3a1; }
-                    blockquote { border-left: 4px solid #89b4fa; padding-left: 10px; color: #a6adc8; font-style: italic; }
-                    ul, ol { padding-left: 20px; }
-                    table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
-                    th, td { border: 1px solid #313244; padding: 8px; text-align: left; }
-                    th { background-color: #181825; }
+                    * { color: #cdd6f4 !important; }
+                    h1, h2, h3, h4 { color: #89b4fa !important; }
+                    h2 { color: #f9e2af !important; border-bottom: 1px solid #313244; padding-bottom: 5px; }
+                    a { color: #89dceb !important; text-decoration: none; }
+                    code { background-color: #313244 !important; color: #fab387 !important; padding: 2px 4px; border-radius: 3px; font-family: 'Consolas', monospace; }
+                    pre { background-color: #181825 !important; padding: 10px; border-radius: 5px; overflow-x: auto; }
+                    pre code { background-color: transparent !important; color: #a6e3a1 !important; }
+                    blockquote { border-left: 4px solid #89b4fa !important; padding-left: 10px; color: #a6adc8 !important; font-style: italic; }
+                    th { background-color: #181825 !important; }
+                    td, th { border: 1px solid #313244 !important; }
                 </style>
                 """
                 full_html = f"<html><head>{dark_css}</head><body>{html_content}</body></html>"
