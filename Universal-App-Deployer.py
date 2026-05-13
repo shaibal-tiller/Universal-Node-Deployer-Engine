@@ -12,9 +12,18 @@ import json
 import sys
 import socket
 import hashlib
-from datetime import datetime
+import platform
 
-__version__ = "1.0.0"
+# macOS PATH Fix: GUI apps don't inherit shell PATH. 
+# We must manually inject common binary locations.
+if platform.system() == "Darwin":
+    common_paths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+    current_path = os.environ.get("PATH", "")
+    new_paths = [p for p in common_paths if p not in current_path]
+    if new_paths:
+        os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
+
+__version__ = "1.0.1"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
