@@ -491,6 +491,17 @@ del "%~f0"
             widget.destroy()
 
     def run_step(self, step_num):
+        # Validation: Don't allow proceeding without a valid project path
+        path = self.project_dir.get()
+        if step_num > 1:
+            if not path or path == "/" or not os.path.isdir(path):
+                messagebox.showwarning("Warning", "Please select a valid project directory first!")
+                # Revert to step 1
+                self.set_active_step(1)
+                self.clear_action_frame()
+                self.step_project_overview()
+                return
+
         self.set_active_step(step_num)
         self.clear_action_frame()
         
@@ -616,6 +627,9 @@ del "%~f0"
 
         btn = ttk.Button(btn_frame, text="Proceed to System Check ➜", style="Action.TButton", command=lambda: self.run_step(2))
         btn.pack(side=tk.LEFT)
+        if self.project_type == "Unknown":
+            btn.config(state="disabled")
+            ttk.Label(self.action_content, text="⚠️ Please select a folder containing package.json, requirements.txt, or a Dockerfile.", foreground="#f38ba8").pack(anchor=tk.W, pady=5)
         self.log(f"Project '{name}' selected. {total_deps} packages found.")
 
     def step_system_check(self):
