@@ -24,7 +24,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.8"
+__version__ = "1.0.9"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
@@ -62,6 +62,7 @@ class UpdateManager:
         self.update_available = False
         self.latest_version = ""
         self.download_url = ""
+        self.last_error = ""
 
     def check_for_updates(self):
         try:
@@ -91,9 +92,14 @@ class UpdateManager:
                     
                     self.update_available = True
                     return True
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                self.last_error = "GitHub API Rate Limit Exceeded. Try again later."
+            else:
+                self.last_error = f"HTTP Error {e.code}: {e.reason}"
         except Exception as e:
-            # Silence is golden, but we can print for debugging if needed
-            pass
+            self.last_error = str(e)
+
         return False
 
     def _is_newer(self, latest, current):
@@ -162,19 +168,21 @@ class UniversalAppDeployer(tk.Tk):
                                "Would you like to install it now? The app will restart automatically."):
             self.perform_hot_update(updater)
 
-    def perform_hot_update(self, updater):
-        if not updater.download_url:
+    def perform_hot_update(self, updater, local_file=None):
+        if not local_file and (not updater or not updater.download_url):
             webbrowser.open(f"https://github.com/{GITHUB_REPO}/releases/latest")
             return
             
         import tempfile
+        import shutil
         
         # Show progress
         top = tk.Toplevel(self)
         top.title("Updating...")
         top.geometry("300x150")
         top.configure(bg="#1e1e2e")
-        ttk.Label(top, text="Downloading update...", foreground="#89b4fa", font=("Segoe UI", 11)).pack(pady=20)
+        lbl_text = "Installing update..." if local_file else "Downloading update..."
+        ttk.Label(top, text=lbl_text, foreground="#89b4fa", font=("Segoe UI", 11)).pack(pady=20)
         progress = ttk.Progressbar(top, mode="indeterminate")
         progress.pack(fill=tk.X, padx=20)
         progress.start()
@@ -185,7 +193,10 @@ class UniversalAppDeployer(tk.Tk):
                 ext = ".exe" if platform.system() == "Windows" else ".dmg"
                 download_path = os.path.join(temp_dir, f"UniversalAppDeployer_Update{ext}")
                 
-                urllib.request.urlretrieve(updater.download_url, download_path)
+                if local_file:
+                    shutil.copy2(local_file, download_path)
+                else:
+                    urllib.request.urlretrieve(updater.download_url, download_path)
                 
                 # Executable location
                 exe_path = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
@@ -259,7 +270,10 @@ del "%~f0"
 
         # Manual Update Button
         self.btn_update = ttk.Button(header, text="Check for Updates", command=self.manual_update_check)
-        self.btn_update.pack(side=tk.RIGHT, padx=10)
+        self.btn_update.pack(side=tk.RIGHT, padx=5)
+        
+        self.btn_local_update = ttk.Button(header, text="Install Local Update...", command=self.manual_local_update)
+        self.btn_local_update.pack(side=tk.RIGHT, padx=5)
 
         # System Metrics Dashboard (Prominent)
         metrics_frame = ttk.LabelFrame(self, text=" App & System Real-Time Metrics ", padding=10)
@@ -453,7 +467,20 @@ del "%~f0"
         if updater.check_for_updates():
             self.show_update_dialog(updater)
         else:
-            messagebox.showinfo("Update Check", f"You are up to date! (v{__version__})")
+            if updater.last_error:
+                messagebox.showwarning("Update Error", f"Could not check for updates:\n\n{updater.last_error}")
+            else:
+                messagebox.showinfo("Update Check", f"You are up to date! (v{__version__})")
+
+    def manual_local_update(self):
+        filetypes = [("Executables/Images", "*.exe *.zip *.dmg"), ("All Files", "*.*")]
+        file_path = filedialog.askopenfilename(title="Select Downloaded Update File", filetypes=filetypes)
+        
+        if not file_path:
+            return
+            
+        if messagebox.askyesno("Confirm Local Update", f"Are you sure you want to install and restart from this file?\n\n{os.path.basename(file_path)}"):
+            self.perform_hot_update(None, local_file=file_path)
 
     def update_network_status(self):
         def check():
