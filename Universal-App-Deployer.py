@@ -24,7 +24,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
@@ -584,57 +584,40 @@ del "%~f0"
         # Readme Preview
         md_files = [f for f in os.listdir(self.project_dir.get()) if f.lower().endswith(".md")]
         
-        def show_readme():
-            if not md_files: return
-            md_path = os.path.join(self.project_dir.get(), md_files[0])
-            try:
-                with open(md_path, 'r', encoding="utf-8") as f:
-                    content = f.read()
+        def create_show_readme_command(file_name):
+            def show_readme():
+                md_path = os.path.join(self.project_dir.get(), file_name)
+                try:
+                    with open(md_path, 'r', encoding="utf-8") as f:
+                        content = f.read()
+                        
+                    # Convert Markdown to HTML
+                    html_content = markdown2.markdown(content, extras=["fenced-code-blocks", "tables", "header-ids"])
                     
-                # Convert Markdown to HTML
-                html_content = markdown2.markdown(content, extras=["fenced-code-blocks", "tables", "header-ids"])
-                
-                # Inject Dark Mode CSS ensuring high contrast
-                dark_css = """
-                <style>
-                    body {
-                        background-color: #11111b !important;
-                        color: #cdd6f4 !important;
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        font-size: 14px;
-                        line-height: 1.6;
-                        padding: 15px;
-                    }
-                    * { color: #cdd6f4 !important; }
-                    h1, h2, h3, h4 { color: #89b4fa !important; }
-                    h2 { color: #f9e2af !important; border-bottom: 1px solid #313244; padding-bottom: 5px; }
-                    a { color: #89dceb !important; text-decoration: none; }
-                    code { background-color: #313244 !important; color: #fab387 !important; padding: 2px 4px; border-radius: 3px; font-family: 'Consolas', monospace; }
-                    pre { background-color: #181825 !important; padding: 10px; border-radius: 5px; overflow-x: auto; }
-                    pre code { background-color: transparent !important; color: #a6e3a1 !important; }
-                    blockquote { border-left: 4px solid #89b4fa !important; padding-left: 10px; color: #a6adc8 !important; font-style: italic; }
-                    th { background-color: #181825 !important; }
-                    td, th { border: 1px solid #313244 !important; }
-                </style>
-                """
-                full_html = f"<html><head>{dark_css}</head><body>{html_content}</body></html>"
+                    # tkhtmlview ignores most <style> blocks. We must use inline styles and widget fg colors.
+                    html_content = f"<div style='color: #cdd6f4; background-color: #11111b;'>{html_content}</div>"
+                    
+                    full_html = f"<html><body>{html_content}</body></html>"
 
-                top = tk.Toplevel(self)
-                top.title(f"Viewing: {md_files[0]}")
-                top.geometry("850x650")
-                top.configure(bg="#1e1e2e")
-                
-                html_view = HTMLScrolledText(top, html=full_html, background="#11111b")
-                html_view.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-                
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to parse markdown file: {e}")
+                    top = tk.Toplevel(self)
+                    top.title(f"Viewing: {file_name}")
+                    top.geometry("850x650")
+                    top.configure(bg="#1e1e2e")
+                    
+                    # Explicitly set the foreground color of the underlying Text widget
+                    html_view = HTMLScrolledText(top, html=full_html, background="#11111b", fg="#cdd6f4", insertbackground="#cdd6f4")
+                    html_view.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+                    
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to parse markdown file: {e}")
+            return show_readme
 
         btn_frame = ttk.Frame(self.action_content)
         btn_frame.pack(fill=tk.X, pady=15)
         
-        if md_files:
-            btn_readme = ttk.Button(btn_frame, text=f"📄 View {md_files[0]}", command=show_readme)
+        # Create a button for every markdown file found
+        for md_file in md_files:
+            btn_readme = ttk.Button(btn_frame, text=f"📄 View {md_file}", command=create_show_readme_command(md_file))
             btn_readme.pack(side=tk.LEFT, padx=(0, 10))
 
         btn = ttk.Button(btn_frame, text="Proceed to System Check ➜", style="Action.TButton", command=lambda: self.run_step(2))
