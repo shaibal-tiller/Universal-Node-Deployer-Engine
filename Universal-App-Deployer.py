@@ -31,7 +31,7 @@ if platform.system() == "Darwin":
     if new_paths:
         os.environ["PATH"] = ":".join(new_paths) + ":" + current_path
 
-__version__ = "1.0.10"
+__version__ = "1.0.11"
 GITHUB_REPO = "shaibal-tiller/Universal-Node-Deployer-Engine"
 
 def resource_path(relative_path):
@@ -649,10 +649,17 @@ del "%~f0"
         btn_frame = ttk.Frame(self.action_content)
         btn_frame.pack(fill=tk.X, pady=15)
         
-        # Create a button for every markdown file found
-        for md_file in md_files:
-            btn_readme = ttk.Button(btn_frame, text=f"📄 View {md_file}", command=create_show_readme_command(md_file))
-            btn_readme.pack(side=tk.LEFT, padx=(0, 10))
+        # Markdown Document Selector
+        if md_files:
+            md_var = tk.StringVar(value=md_files[0])
+            cb_md = ttk.Combobox(btn_frame, textvariable=md_var, values=md_files, state="readonly", width=25)
+            cb_md.pack(side=tk.LEFT, padx=(0, 5))
+            
+            def open_selected_md():
+                create_show_readme_command(md_var.get())()
+                
+            btn_readme = ttk.Button(btn_frame, text="📄 View Document", command=open_selected_md)
+            btn_readme.pack(side=tk.LEFT, padx=(0, 15))
 
         btn = ttk.Button(btn_frame, text="Proceed to System Check ➜", style="Action.TButton", command=lambda: self.run_step(2))
         btn.pack(side=tk.LEFT)
